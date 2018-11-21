@@ -1,0 +1,1151 @@
+Cola report for hierarchical partitioning
+==================
+
+**Date**: `r Sys.Date()`
+
+----------------------------------------------------------------
+
+<style type='text/css'>
+#toc {
+  position: fixed;
+  left: 0;
+  top: 20px;
+  width: 200px;
+  height: 100%;
+  overflow:auto;
+  padding: 0px 10px 0px 10px;
+}
+#toc_header {
+  display: none;
+}
+#toc ul {
+  margin: 0px;
+  padding: 0px;
+}
+#toc ul li {
+  list-style-type: none;
+}
+
+#toc ul li ul li {
+  margin-left: 15px;
+  list-style-type: circle;
+}
+body, td, th {
+   font-family: Arial,Helvetica,sans-serif;
+   background-color: white;
+   font-size: 13px;
+  max-width: 800px;
+  margin: auto;
+  margin-left:210px;
+  padding: 0px 10px 0px 10px;
+  border-left: 1px solid #EEEEEE;
+  line-height: 150%;
+}
+
+tt, code, pre {
+   font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, 
+
+monospace;
+}
+
+h1 {
+   font-size:2.2em;
+}
+
+h2 {
+   font-size:1.8em;
+}
+
+h3 {
+   font-size:1.4em;
+}
+
+h4 {
+   font-size:1.0em;
+}
+
+h5 {
+   font-size:0.9em;
+}
+
+h6 {
+   font-size:0.8em;
+}
+
+a {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:visited {
+   color: rgb(50%, 0%, 50%);
+}
+
+pre, img {
+  max-width: 100%;
+}
+pre {
+  overflow-x: auto;
+}
+pre code {
+   display: block; padding: 0.5em;
+}
+
+code {
+  font-size: 92%;
+  border: 1px solid #ccc;
+}
+
+code[class] {
+  background-color: #F8F8F8;
+}
+
+table, td, th {
+  border: 1px solid #ccc;
+}
+
+blockquote {
+   color:#666666;
+   margin:0;
+   padding-left: 1em;
+   border-left: 0.5em #EEE solid;
+}
+
+hr {
+   height: 0px;
+   border-bottom: none;
+   border-top-width: thin;
+   border-top-style: dotted;
+   border-top-color: #999999;
+}
+
+@media print {
+   * {
+      background: transparent !important;
+      color: black !important;
+      filter:none !important;
+      -ms-filter: none !important;
+   }
+
+   body {
+      font-size:12pt;
+      max-width:100%;
+   }
+
+   a, a:visited {
+      text-decoration: underline;
+   }
+
+   hr {
+      visibility: hidden;
+      page-break-before: always;
+   }
+
+   pre, blockquote {
+      padding-right: 1em;
+      page-break-inside: avoid;
+   }
+
+   tr, img {
+      page-break-inside: avoid;
+   }
+
+   img {
+      max-width: 100% !important;
+   }
+
+   @page :left {
+      margin: 15mm 20mm 15mm 10mm;
+   }
+
+   @page :right {
+      margin: 15mm 10mm 15mm 20mm;
+   }
+
+   p, h2, h3 {
+      orphans: 3; widows: 3;
+   }
+
+   h2, h3 {
+      page-break-after: avoid;
+   }
+}
+</style>
+
+```{r, echo = FALSE, message = FALSE}
+library(knitr)
+library(markdown)
+options(markdown.HTML.options = setdiff(c(getOption("markdown.HTML.options"), "toc"), "base64_images"))
+options(width = 100)
+options(digits = 3)
+opts_chunk$set(
+	comment = "#>",
+	fig.path = "figure_cola/",
+	warning = FALSE,
+	message = FALSE
+)
+suppressPackageStartupMessages(library(ComplexHeatmap))
+suppressPackageStartupMessages(library(genefilter))
+```
+
+
+## Summary
+
+All available functions which can be applied to `res_hc` object.
+
+
+
+```{r, eval = 2:3, echo = FALSE}
+res_hc = rh
+res_hc = object
+res_hc
+```
+
+
+```{r, eval = FALSE, echo = TRUE}
+res_hc = rh
+res_hc
+```
+
+The call for `hierarchical_partition()`:
+
+```{r, echo = FALSE}
+print(res_hc@calling)
+```
+
+
+Dimension of the input matrix:
+
+```{r}
+mat = get_matrix(res_hc)
+dim(mat)
+```
+
+Global distribution for each sample:
+
+
+```{r, echo = FALSE, message = FALSE}
+message(qq("* making density heatmap of global distribution in each sample (@{ncol(mat)} samples)"))
+```
+
+```{r hc-density-heatmap}
+library(ComplexHeatmap)
+densityHeatmap(mat, top_annotation = HeatmapAnnotation(df = get_anno(res_hc), 
+	col = get_anno_col(res_hc)), ylab = "value")
+```
+
+About the hierarchy:
+
+
+```{r}
+max_depth = max_depth(res_hc)
+max_depth
+all_nodes = all_nodes(res_hc)
+all_nodes
+all_leaves = all_leaves(res_hc)
+all_leaves
+```
+
+```{r, echo = FALSE, message = FALSE}
+message(qq("* top rows are extracted by '@{res_hc[1]@top_value_method}' method"))
+message(qq("* subgroups are detected by '@{res_hc[1]@partition_method}' method"))
+message(qq("* In total there are @{length(all_leaves)} subgroups"))
+```
+
+
+Partitions for different depth:
+
+
+```{r, echo = FALSE, message = FALSE}
+t1 = Sys.time()
+message(qq("* collecting classifications for each depth (2..@{max_depth})"), appendLF = FALSE)
+```
+
+```{r, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('collect_classes(res_hc, depth = 2)\nget_classes(res_hc, depth = 2)', 'depth = 2')
+knitr_add_tab_item('collect_classes(res_hc, depth = 3)\nget_classes(res_hc, depth = 3)', 'depth = 3')
+knitr_add_tab_item('collect_classes(res_hc, depth = 4)\nget_classes(res_hc, depth = 4)', 'depth = 4')
+knitr_insert_tabs()
+```
+
+MDS plot:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message(qq("* making PCA plots"), appendLF = FALSE)
+```
+
+```{r, results = 'asis', echo = FALSE, include = TRUE}
+knitr_add_tab_item('dimension_reduction(res_hc, depth = 2)', 'depth = 2')
+knitr_add_tab_item('dimension_reduction(res_hc, depth = 3)', 'depth = 3')
+knitr_add_tab_item('dimension_reduction(res_hc, depth = 4)', 'depth = 4')
+knitr_insert_tabs()
+```
+
+Or you can also do it for each parent node:
+
+```{r, results = 'asis', echo = FALSE, include = TRUE}
+knitr_add_tab_item('dimension_reduction(res_hc, parent_node = "0")', 'parent_node = "0"')
+knitr_add_tab_item('dimension_reduction(res_hc, parent_node = "00")', 'parent_node = "00"')
+knitr_add_tab_item('dimension_reduction(res_hc, parent_node = "001")', 'parent_node = "001"')
+knitr_add_tab_item('dimension_reduction(res_hc, parent_node = "000")', 'parent_node = "000"')
+knitr_insert_tabs()
+```
+
+
+Signature genes and the overlap:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message(qq("* making signature heatmaps"), appendLF = FALSE)
+```
+
+```{r hc-signature, results = "hide"}
+get_signatures(res_hc)
+```
+
+```{r hc-signature, results = "hide"}
+get_signatures(res_hc, plot_type = "venneuler")
+```
+
+
+
+
+Test correlation between subgroups and known annotations:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message(qq("* testing correlation of subgroups to known annotations"), appendLF = FALSE)
+```
+
+```{r, results = 'asis', echo = FALSE, include = TRUE}
+knitr_add_tab_item('test_to_known_factors(res_hc, depth = 2)', 'depth = 2')
+knitr_add_tab_item('test_to_known_factors(res_hc, depth = 3)', 'depth = 3')
+knitr_add_tab_item('test_to_known_factors(res_hc, depth = 4)', 'depth = 4')
+knitr_insert_tabs()
+```
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1))));
+```
+
+
+## Results for each node
+
+	
+---------------------------------------------------
+
+
+
+### Node 0
+
+
+```{r, echo = FALSE, message = FALSE}
+message("-----------------------------------------------------------------")
+message("* generating plots for node 0 (1/4)")
+```
+
+The object with results only for a single top value method and a single partition method 
+can be extracted as:
+
+```{r}
+res = res_hc["0"]
+```
+
+A summary of `res` and all the functions that can be applied to it:
+
+```{r}
+res
+```
+
+`collect_plots()` function collects all the plots made from `res` for all `k` (number of partitions)
+into one single page to provide an easy and fast comparison between different `k`.
+
+
+```{r, echo = FALSE, message = FALSE}
+t1 = Sys.time()
+message("  - collecting all plots (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+The plots are:
+
+- The first row: a plot of the ECDF (Empirical cumulative distribution function) curves of the consensus matrix for each `k` and the heatmap of predicted
+  classes for each `k`.
+- The second row: heatmaps of the consensus matrix for each `k`.
+- The third row: heatmaps of the membership matrix for each `k`.
+- The fouth row: heatmaps of the signatures for each `k`.
+
+All the plots in panels can be made by individual functions and they are plotted later in this section.
+
+```{r node-0-collect-plots, fig.width = 6, fig.height = 8, results = "hide"}
+collect_plots(res)
+```
+
+`select_partition_number()` produces several plots showing different statistics for choosing "optimized" `k`. There are following statistics:
+
+- ECDF curves of the consensus matrix for each `k`;
+- cophenetic correlation coefficient. It measures if hierarchical clustering is applied on the consensus matrix, how good it correlates to the consensus matrix itself. 
+- PAC. This a variant of the orignial PAC (proportion of ambiguous clustering) method. For each $x_{1i}$ in `seq(0.1, 0.3, by = 0.02)` and $x_{2j}$ in `seq(0.7, 0.9, by = 0.02)`, $PAC_k = F(x_{2j}) - F(x_{1i})$ where $F(x)$ is the ECDF of the consensus matrix (the lower triangle matrix without diagnals). The final PAC is the mean of all $PAC_k$ by removing top 10 percent and bottom 10 percent of all values.
+- mean silhouette score.
+- concordance. The mean probability of fiting the consensus class ids in all partitions.
+- area increased. Denote $A_k$ as the area under the ECDF curve for current `k`, the area increased is defined as $A_k - A_{k-1}$.
+- Rand index. The percent of pairs of samples that are both in a same cluster or both are not in a same cluster in the partition of k and k-1.
+- Jaccard index. The ratio of pairs of samples are both in a same cluster in the partition of k and k-1 and the pairs of samples are both in a same cluster in the partition k or k-1.
+
+Generally speaking, higher cophenetic correlation coefficient, lower PAC score, higher mean silhouette score or higher concordance corresponds to better partition. Rand index and Jaccard index measure how similar the current partition is compared to partition with `k-1`. If they are too similar, we won't accept `k` is better than `k-1`.
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - plotting various statistics for selecting best k", appendLF = FALSE)
+```
+
+```{r node-0-select-partition-number, results = "hide", fig.width = 10}
+select_partition_number(res)
+```
+
+The numeric values for all these statistics can be obtained by `get_stat()`.
+
+```{r}
+get_stat(res)
+```
+
+Guess the best `k` based on these statistics. The rule is as follows:
+
+1. All `k` with Rand index larger than 0.95 are removed because the partition number increasement
+  does not provides enough extra information.
+2. For `k` with cophenetic correlation coefficient larger than 0.99 or PAC score less than 0.1 or oncordance larger than 0.95,
+  the maximum `k` is taken as the "best `k`".
+3. The `k` with highest cophenetic correlation coefficient, lowest PAC score, highest mean silhouette and highest
+   concordance. The `k` with highest occurance is taken as the "best `k`".
+
+```{r}
+guess_best_k(res)
+```
+
+The table of the partitions. The membership matrix (columns with name `p*`) is inferred by [`clue::cl_consensus()`](https://www.rdocumentation.org/link/cl_consensus?package=clue)
+function with the `SE` method. Basically the value in the membership matrix represents the probability to belong
+to a certain group. The finall class label for an item is determined with the group with highest probability it belongs to.
+
+In `get_classes()` function, the entropy is calculated from the membership matrix and the silhouette score
+is calculated from the consensus matrix.
+
+```{r, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('cbind(get_classes(res, k = 2), get_membership(res, k = 2))', 'k = 2')
+knitr_add_tab_item('cbind(get_classes(res, k = 3), get_membership(res, k = 3))', 'k = 3')
+knitr_add_tab_item('cbind(get_classes(res, k = 4), get_membership(res, k = 4))', 'k = 4')
+knitr_insert_tabs()
+```
+
+Heatmaps for the consensus matrix:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making consensus heatmaps (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-0-consensus-heatmap, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('consensus_heatmap(res, k = 2)', 'k = 2')
+knitr_add_tab_item('consensus_heatmap(res, k = 3)', 'k = 3')
+knitr_add_tab_item('consensus_heatmap(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+Heatmaps for the membership of samples in all partitions to see how consistent they are:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making membership heatmaps (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-0-membership-heatmap, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('membership_heatmap(res, k = 2)', 'k = 2')
+knitr_add_tab_item('membership_heatmap(res, k = 3)', 'k = 3')
+knitr_add_tab_item('membership_heatmap(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+As soon as we have had the classes for columns, we can look for signatures which are significantly
+different between classes which can be candidate marks for certain classes.
+
+Heatmaps for signatures:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - getting signatures (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-0-signature, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('get_signatures(res, k = 2)', 'k = 2', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 3)', 'k = 3', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 4)', 'k = 4', opt = 'results = "hide"')
+knitr_insert_tabs()
+```
+
+```{r node-0-signature-no-scale, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('get_signatures(res, k = 2, scale_rows = FALSE)', 'k = 2', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 3, scale_rows = FALSE)', 'k = 3', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 4, scale_rows = FALSE)', 'k = 4', opt = 'results = "hide"')
+knitr_insert_tabs()
+```
+
+PCA plots:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making PCA plots (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-0-mds, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('dimension_reduction(res, k = 2)', 'k = 2')
+knitr_add_tab_item('dimension_reduction(res, k = 3)', 'k = 3')
+knitr_add_tab_item('dimension_reduction(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - collecting classifications for all k", appendLF = FALSE)
+```
+
+How subgroups split when increasing `k`:
+
+```{r node-0-collect-classes}
+collect_classes(res)
+```
+
+
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message(qq("* testing correlation of subgroups to known annotations"), appendLF = FALSE)
+```
+	
+Test to known annotations:
+
+```{r, eval = !is.null(res@anno), echo = !is.null(res@anno)}
+test_to_known_factors(res)
+```
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1))));
+```
+
+
+
+Consider to use `submit_to_david()` to do function enrichment for each signature list.
+
+	
+---------------------------------------------------
+
+
+
+### Node 00
+
+
+```{r, echo = FALSE, message = FALSE}
+message("-----------------------------------------------------------------")
+message("* generating plots for node 00 (2/4)")
+```
+
+The object with results only for a single top value method and a single partition method 
+can be extracted as:
+
+```{r}
+res = res_hc["00"]
+```
+
+A summary of `res` and all the functions that can be applied to it:
+
+```{r}
+res
+```
+
+`collect_plots()` function collects all the plots made from `res` for all `k` (number of partitions)
+into one single page to provide an easy and fast comparison between different `k`.
+
+
+```{r, echo = FALSE, message = FALSE}
+t1 = Sys.time()
+message("  - collecting all plots (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+The plots are:
+
+- The first row: a plot of the ECDF (Empirical cumulative distribution function) curves of the consensus matrix for each `k` and the heatmap of predicted
+  classes for each `k`.
+- The second row: heatmaps of the consensus matrix for each `k`.
+- The third row: heatmaps of the membership matrix for each `k`.
+- The fouth row: heatmaps of the signatures for each `k`.
+
+All the plots in panels can be made by individual functions and they are plotted later in this section.
+
+```{r node-00-collect-plots, fig.width = 6, fig.height = 8, results = "hide"}
+collect_plots(res)
+```
+
+`select_partition_number()` produces several plots showing different statistics for choosing "optimized" `k`. There are following statistics:
+
+- ECDF curves of the consensus matrix for each `k`;
+- cophenetic correlation coefficient. It measures if hierarchical clustering is applied on the consensus matrix, how good it correlates to the consensus matrix itself. 
+- PAC. This a variant of the orignial PAC (proportion of ambiguous clustering) method. For each $x_{1i}$ in `seq(0.1, 0.3, by = 0.02)` and $x_{2j}$ in `seq(0.7, 0.9, by = 0.02)`, $PAC_k = F(x_{2j}) - F(x_{1i})$ where $F(x)$ is the ECDF of the consensus matrix (the lower triangle matrix without diagnals). The final PAC is the mean of all $PAC_k$ by removing top 10 percent and bottom 10 percent of all values.
+- mean silhouette score.
+- concordance. The mean probability of fiting the consensus class ids in all partitions.
+- area increased. Denote $A_k$ as the area under the ECDF curve for current `k`, the area increased is defined as $A_k - A_{k-1}$.
+- Rand index. The percent of pairs of samples that are both in a same cluster or both are not in a same cluster in the partition of k and k-1.
+- Jaccard index. The ratio of pairs of samples are both in a same cluster in the partition of k and k-1 and the pairs of samples are both in a same cluster in the partition k or k-1.
+
+Generally speaking, higher cophenetic correlation coefficient, lower PAC score, higher mean silhouette score or higher concordance corresponds to better partition. Rand index and Jaccard index measure how similar the current partition is compared to partition with `k-1`. If they are too similar, we won't accept `k` is better than `k-1`.
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - plotting various statistics for selecting best k", appendLF = FALSE)
+```
+
+```{r node-00-select-partition-number, results = "hide", fig.width = 10}
+select_partition_number(res)
+```
+
+The numeric values for all these statistics can be obtained by `get_stat()`.
+
+```{r}
+get_stat(res)
+```
+
+Guess the best `k` based on these statistics. The rule is as follows:
+
+1. All `k` with Rand index larger than 0.95 are removed because the partition number increasement
+  does not provides enough extra information.
+2. For `k` with cophenetic correlation coefficient larger than 0.99 or PAC score less than 0.1 or oncordance larger than 0.95,
+  the maximum `k` is taken as the "best `k`".
+3. The `k` with highest cophenetic correlation coefficient, lowest PAC score, highest mean silhouette and highest
+   concordance. The `k` with highest occurance is taken as the "best `k`".
+
+```{r}
+guess_best_k(res)
+```
+
+The table of the partitions. The membership matrix (columns with name `p*`) is inferred by [`clue::cl_consensus()`](https://www.rdocumentation.org/link/cl_consensus?package=clue)
+function with the `SE` method. Basically the value in the membership matrix represents the probability to belong
+to a certain group. The finall class label for an item is determined with the group with highest probability it belongs to.
+
+In `get_classes()` function, the entropy is calculated from the membership matrix and the silhouette score
+is calculated from the consensus matrix.
+
+```{r, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('cbind(get_classes(res, k = 2), get_membership(res, k = 2))', 'k = 2')
+knitr_add_tab_item('cbind(get_classes(res, k = 3), get_membership(res, k = 3))', 'k = 3')
+knitr_add_tab_item('cbind(get_classes(res, k = 4), get_membership(res, k = 4))', 'k = 4')
+knitr_insert_tabs()
+```
+
+Heatmaps for the consensus matrix:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making consensus heatmaps (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-00-consensus-heatmap, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('consensus_heatmap(res, k = 2)', 'k = 2')
+knitr_add_tab_item('consensus_heatmap(res, k = 3)', 'k = 3')
+knitr_add_tab_item('consensus_heatmap(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+Heatmaps for the membership of samples in all partitions to see how consistent they are:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making membership heatmaps (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-00-membership-heatmap, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('membership_heatmap(res, k = 2)', 'k = 2')
+knitr_add_tab_item('membership_heatmap(res, k = 3)', 'k = 3')
+knitr_add_tab_item('membership_heatmap(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+As soon as we have had the classes for columns, we can look for signatures which are significantly
+different between classes which can be candidate marks for certain classes.
+
+Heatmaps for signatures:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - getting signatures (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-00-signature, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('get_signatures(res, k = 2)', 'k = 2', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 3)', 'k = 3', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 4)', 'k = 4', opt = 'results = "hide"')
+knitr_insert_tabs()
+```
+
+```{r node-00-signature-no-scale, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('get_signatures(res, k = 2, scale_rows = FALSE)', 'k = 2', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 3, scale_rows = FALSE)', 'k = 3', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 4, scale_rows = FALSE)', 'k = 4', opt = 'results = "hide"')
+knitr_insert_tabs()
+```
+
+PCA plots:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making PCA plots (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-00-mds, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('dimension_reduction(res, k = 2)', 'k = 2')
+knitr_add_tab_item('dimension_reduction(res, k = 3)', 'k = 3')
+knitr_add_tab_item('dimension_reduction(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - collecting classifications for all k", appendLF = FALSE)
+```
+
+How subgroups split when increasing `k`:
+
+```{r node-00-collect-classes}
+collect_classes(res)
+```
+
+
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message(qq("* testing correlation of subgroups to known annotations"), appendLF = FALSE)
+```
+	
+Test to known annotations:
+
+```{r, eval = !is.null(res@anno), echo = !is.null(res@anno)}
+test_to_known_factors(res)
+```
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1))));
+```
+
+
+
+Consider to use `submit_to_david()` to do function enrichment for each signature list.
+
+	
+---------------------------------------------------
+
+
+
+### Node 001
+
+
+```{r, echo = FALSE, message = FALSE}
+message("-----------------------------------------------------------------")
+message("* generating plots for node 001 (3/4)")
+```
+
+The object with results only for a single top value method and a single partition method 
+can be extracted as:
+
+```{r}
+res = res_hc["001"]
+```
+
+A summary of `res` and all the functions that can be applied to it:
+
+```{r}
+res
+```
+
+`collect_plots()` function collects all the plots made from `res` for all `k` (number of partitions)
+into one single page to provide an easy and fast comparison between different `k`.
+
+
+```{r, echo = FALSE, message = FALSE}
+t1 = Sys.time()
+message("  - collecting all plots (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+The plots are:
+
+- The first row: a plot of the ECDF (Empirical cumulative distribution function) curves of the consensus matrix for each `k` and the heatmap of predicted
+  classes for each `k`.
+- The second row: heatmaps of the consensus matrix for each `k`.
+- The third row: heatmaps of the membership matrix for each `k`.
+- The fouth row: heatmaps of the signatures for each `k`.
+
+All the plots in panels can be made by individual functions and they are plotted later in this section.
+
+```{r node-001-collect-plots, fig.width = 6, fig.height = 8, results = "hide"}
+collect_plots(res)
+```
+
+`select_partition_number()` produces several plots showing different statistics for choosing "optimized" `k`. There are following statistics:
+
+- ECDF curves of the consensus matrix for each `k`;
+- cophenetic correlation coefficient. It measures if hierarchical clustering is applied on the consensus matrix, how good it correlates to the consensus matrix itself. 
+- PAC. This a variant of the orignial PAC (proportion of ambiguous clustering) method. For each $x_{1i}$ in `seq(0.1, 0.3, by = 0.02)` and $x_{2j}$ in `seq(0.7, 0.9, by = 0.02)`, $PAC_k = F(x_{2j}) - F(x_{1i})$ where $F(x)$ is the ECDF of the consensus matrix (the lower triangle matrix without diagnals). The final PAC is the mean of all $PAC_k$ by removing top 10 percent and bottom 10 percent of all values.
+- mean silhouette score.
+- concordance. The mean probability of fiting the consensus class ids in all partitions.
+- area increased. Denote $A_k$ as the area under the ECDF curve for current `k`, the area increased is defined as $A_k - A_{k-1}$.
+- Rand index. The percent of pairs of samples that are both in a same cluster or both are not in a same cluster in the partition of k and k-1.
+- Jaccard index. The ratio of pairs of samples are both in a same cluster in the partition of k and k-1 and the pairs of samples are both in a same cluster in the partition k or k-1.
+
+Generally speaking, higher cophenetic correlation coefficient, lower PAC score, higher mean silhouette score or higher concordance corresponds to better partition. Rand index and Jaccard index measure how similar the current partition is compared to partition with `k-1`. If they are too similar, we won't accept `k` is better than `k-1`.
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - plotting various statistics for selecting best k", appendLF = FALSE)
+```
+
+```{r node-001-select-partition-number, results = "hide", fig.width = 10}
+select_partition_number(res)
+```
+
+The numeric values for all these statistics can be obtained by `get_stat()`.
+
+```{r}
+get_stat(res)
+```
+
+Guess the best `k` based on these statistics. The rule is as follows:
+
+1. All `k` with Rand index larger than 0.95 are removed because the partition number increasement
+  does not provides enough extra information.
+2. For `k` with cophenetic correlation coefficient larger than 0.99 or PAC score less than 0.1 or oncordance larger than 0.95,
+  the maximum `k` is taken as the "best `k`".
+3. The `k` with highest cophenetic correlation coefficient, lowest PAC score, highest mean silhouette and highest
+   concordance. The `k` with highest occurance is taken as the "best `k`".
+
+```{r}
+guess_best_k(res)
+```
+
+The table of the partitions. The membership matrix (columns with name `p*`) is inferred by [`clue::cl_consensus()`](https://www.rdocumentation.org/link/cl_consensus?package=clue)
+function with the `SE` method. Basically the value in the membership matrix represents the probability to belong
+to a certain group. The finall class label for an item is determined with the group with highest probability it belongs to.
+
+In `get_classes()` function, the entropy is calculated from the membership matrix and the silhouette score
+is calculated from the consensus matrix.
+
+```{r, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('cbind(get_classes(res, k = 2), get_membership(res, k = 2))', 'k = 2')
+knitr_add_tab_item('cbind(get_classes(res, k = 3), get_membership(res, k = 3))', 'k = 3')
+knitr_add_tab_item('cbind(get_classes(res, k = 4), get_membership(res, k = 4))', 'k = 4')
+knitr_insert_tabs()
+```
+
+Heatmaps for the consensus matrix:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making consensus heatmaps (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-001-consensus-heatmap, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('consensus_heatmap(res, k = 2)', 'k = 2')
+knitr_add_tab_item('consensus_heatmap(res, k = 3)', 'k = 3')
+knitr_add_tab_item('consensus_heatmap(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+Heatmaps for the membership of samples in all partitions to see how consistent they are:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making membership heatmaps (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-001-membership-heatmap, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('membership_heatmap(res, k = 2)', 'k = 2')
+knitr_add_tab_item('membership_heatmap(res, k = 3)', 'k = 3')
+knitr_add_tab_item('membership_heatmap(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+As soon as we have had the classes for columns, we can look for signatures which are significantly
+different between classes which can be candidate marks for certain classes.
+
+Heatmaps for signatures:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - getting signatures (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-001-signature, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('get_signatures(res, k = 2)', 'k = 2', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 3)', 'k = 3', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 4)', 'k = 4', opt = 'results = "hide"')
+knitr_insert_tabs()
+```
+
+```{r node-001-signature-no-scale, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('get_signatures(res, k = 2, scale_rows = FALSE)', 'k = 2', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 3, scale_rows = FALSE)', 'k = 3', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 4, scale_rows = FALSE)', 'k = 4', opt = 'results = "hide"')
+knitr_insert_tabs()
+```
+
+PCA plots:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making PCA plots (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-001-mds, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('dimension_reduction(res, k = 2)', 'k = 2')
+knitr_add_tab_item('dimension_reduction(res, k = 3)', 'k = 3')
+knitr_add_tab_item('dimension_reduction(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - collecting classifications for all k", appendLF = FALSE)
+```
+
+How subgroups split when increasing `k`:
+
+```{r node-001-collect-classes}
+collect_classes(res)
+```
+
+
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message(qq("* testing correlation of subgroups to known annotations"), appendLF = FALSE)
+```
+	
+Test to known annotations:
+
+```{r, eval = !is.null(res@anno), echo = !is.null(res@anno)}
+test_to_known_factors(res)
+```
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1))));
+```
+
+
+
+Consider to use `submit_to_david()` to do function enrichment for each signature list.
+
+	
+---------------------------------------------------
+
+
+
+### Node 000
+
+
+```{r, echo = FALSE, message = FALSE}
+message("-----------------------------------------------------------------")
+message("* generating plots for node 000 (4/4)")
+```
+
+The object with results only for a single top value method and a single partition method 
+can be extracted as:
+
+```{r}
+res = res_hc["000"]
+```
+
+A summary of `res` and all the functions that can be applied to it:
+
+```{r}
+res
+```
+
+`collect_plots()` function collects all the plots made from `res` for all `k` (number of partitions)
+into one single page to provide an easy and fast comparison between different `k`.
+
+
+```{r, echo = FALSE, message = FALSE}
+t1 = Sys.time()
+message("  - collecting all plots (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+The plots are:
+
+- The first row: a plot of the ECDF (Empirical cumulative distribution function) curves of the consensus matrix for each `k` and the heatmap of predicted
+  classes for each `k`.
+- The second row: heatmaps of the consensus matrix for each `k`.
+- The third row: heatmaps of the membership matrix for each `k`.
+- The fouth row: heatmaps of the signatures for each `k`.
+
+All the plots in panels can be made by individual functions and they are plotted later in this section.
+
+```{r node-000-collect-plots, fig.width = 6, fig.height = 8, results = "hide"}
+collect_plots(res)
+```
+
+`select_partition_number()` produces several plots showing different statistics for choosing "optimized" `k`. There are following statistics:
+
+- ECDF curves of the consensus matrix for each `k`;
+- cophenetic correlation coefficient. It measures if hierarchical clustering is applied on the consensus matrix, how good it correlates to the consensus matrix itself. 
+- PAC. This a variant of the orignial PAC (proportion of ambiguous clustering) method. For each $x_{1i}$ in `seq(0.1, 0.3, by = 0.02)` and $x_{2j}$ in `seq(0.7, 0.9, by = 0.02)`, $PAC_k = F(x_{2j}) - F(x_{1i})$ where $F(x)$ is the ECDF of the consensus matrix (the lower triangle matrix without diagnals). The final PAC is the mean of all $PAC_k$ by removing top 10 percent and bottom 10 percent of all values.
+- mean silhouette score.
+- concordance. The mean probability of fiting the consensus class ids in all partitions.
+- area increased. Denote $A_k$ as the area under the ECDF curve for current `k`, the area increased is defined as $A_k - A_{k-1}$.
+- Rand index. The percent of pairs of samples that are both in a same cluster or both are not in a same cluster in the partition of k and k-1.
+- Jaccard index. The ratio of pairs of samples are both in a same cluster in the partition of k and k-1 and the pairs of samples are both in a same cluster in the partition k or k-1.
+
+Generally speaking, higher cophenetic correlation coefficient, lower PAC score, higher mean silhouette score or higher concordance corresponds to better partition. Rand index and Jaccard index measure how similar the current partition is compared to partition with `k-1`. If they are too similar, we won't accept `k` is better than `k-1`.
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - plotting various statistics for selecting best k", appendLF = FALSE)
+```
+
+```{r node-000-select-partition-number, results = "hide", fig.width = 10}
+select_partition_number(res)
+```
+
+The numeric values for all these statistics can be obtained by `get_stat()`.
+
+```{r}
+get_stat(res)
+```
+
+Guess the best `k` based on these statistics. The rule is as follows:
+
+1. All `k` with Rand index larger than 0.95 are removed because the partition number increasement
+  does not provides enough extra information.
+2. For `k` with cophenetic correlation coefficient larger than 0.99 or PAC score less than 0.1 or oncordance larger than 0.95,
+  the maximum `k` is taken as the "best `k`".
+3. The `k` with highest cophenetic correlation coefficient, lowest PAC score, highest mean silhouette and highest
+   concordance. The `k` with highest occurance is taken as the "best `k`".
+
+```{r}
+guess_best_k(res)
+```
+
+The table of the partitions. The membership matrix (columns with name `p*`) is inferred by [`clue::cl_consensus()`](https://www.rdocumentation.org/link/cl_consensus?package=clue)
+function with the `SE` method. Basically the value in the membership matrix represents the probability to belong
+to a certain group. The finall class label for an item is determined with the group with highest probability it belongs to.
+
+In `get_classes()` function, the entropy is calculated from the membership matrix and the silhouette score
+is calculated from the consensus matrix.
+
+```{r, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('cbind(get_classes(res, k = 2), get_membership(res, k = 2))', 'k = 2')
+knitr_add_tab_item('cbind(get_classes(res, k = 3), get_membership(res, k = 3))', 'k = 3')
+knitr_add_tab_item('cbind(get_classes(res, k = 4), get_membership(res, k = 4))', 'k = 4')
+knitr_insert_tabs()
+```
+
+Heatmaps for the consensus matrix:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making consensus heatmaps (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-000-consensus-heatmap, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('consensus_heatmap(res, k = 2)', 'k = 2')
+knitr_add_tab_item('consensus_heatmap(res, k = 3)', 'k = 3')
+knitr_add_tab_item('consensus_heatmap(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+Heatmaps for the membership of samples in all partitions to see how consistent they are:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making membership heatmaps (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-000-membership-heatmap, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('membership_heatmap(res, k = 2)', 'k = 2')
+knitr_add_tab_item('membership_heatmap(res, k = 3)', 'k = 3')
+knitr_add_tab_item('membership_heatmap(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+As soon as we have had the classes for columns, we can look for signatures which are significantly
+different between classes which can be candidate marks for certain classes.
+
+Heatmaps for signatures:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - getting signatures (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-000-signature, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('get_signatures(res, k = 2)', 'k = 2', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 3)', 'k = 3', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 4)', 'k = 4', opt = 'results = "hide"')
+knitr_insert_tabs()
+```
+
+```{r node-000-signature-no-scale, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('get_signatures(res, k = 2, scale_rows = FALSE)', 'k = 2', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 3, scale_rows = FALSE)', 'k = 3', opt = 'results = "hide"')
+knitr_add_tab_item('get_signatures(res, k = 4, scale_rows = FALSE)', 'k = 4', opt = 'results = "hide"')
+knitr_insert_tabs()
+```
+
+PCA plots:
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - making PCA plots (k = '2, 3, 4')", appendLF = FALSE)
+```
+
+```{r node-000-mds, results = "asis", echo = FALSE, include = TRUE}
+knitr_add_tab_item('dimension_reduction(res, k = 2)', 'k = 2')
+knitr_add_tab_item('dimension_reduction(res, k = 3)', 'k = 3')
+knitr_add_tab_item('dimension_reduction(res, k = 4)', 'k = 4')
+knitr_insert_tabs()
+```
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message("  - collecting classifications for all k", appendLF = FALSE)
+```
+
+How subgroups split when increasing `k`:
+
+```{r node-000-collect-classes}
+collect_classes(res)
+```
+
+
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1)))); t1 = Sys.time()
+message(qq("* testing correlation of subgroups to known annotations"), appendLF = FALSE)
+```
+	
+Test to known annotations:
+
+```{r, eval = !is.null(res@anno), echo = !is.null(res@anno)}
+test_to_known_factors(res)
+```
+
+```{r, echo = FALSE, message = FALSE}
+t2 = Sys.time(); message(paste0(", ", gsub("^ +", "", format(t2 - t1))));
+```
+
+
+
+Consider to use `submit_to_david()` to do function enrichment for each signature list.
+
+
+## Session info
+
+```{r}
+sessionInfo()
+```
