@@ -16,7 +16,7 @@ HTML reports for cola analysis:
 
 Following code performs the analysis:
 
-```{r}
+```r
 library(cola)
 library(RColorBrewer)
 
