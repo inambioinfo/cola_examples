@@ -14,7 +14,9 @@ HTML reports for cola analysis:
 - [TCGA_GBM_subgroup_cola_report](https://jokergoo.github.io/cola_examples/TCGA_GBM_subgroup_cola_report/cola_report.html)
 - [TCGA_GBM_subgroup_hierarchical_partition_cola_report](https://jokergoo.github.io/cola_examples/TCGA_GBM_subgroup_hierarchical_partition_cola_report/cola_hc.html)
 
-Following code performs the analysis:
+Following code performs the analysis.
+
+Prepare the input matrix:
 
 ```r
 library(cola)
@@ -29,13 +31,22 @@ subtype = structure(unlist(subtype[1, -(1:2)]), names = colnames(subtype)[-(1:2)
 
 data = data[, names(subtype)]
 data = adjust_matrix(data)
+```
+
+Perform the consensus partitioning:
+
+```r
 rl = run_all_consensus_partition_methods(data, top_n = c(1000, 2000, 3000, 4000), 
     max_k = 6, mc.cores = 4, anno = data.frame(subtype = subtype), 
     anno_col = list(subtype = structure(seq_len(4), names = unique(subtype))))
 
 saveRDS(rl, file = "TCGA_GBM_subgroup.rds")
 cola_report(rl, output_dir = "TCGA_GBM_subgroup_cola_report")
+```
 
+Perform the hierarchical partitioning:
+
+```r
 rh = hierarchical_partition(data, top_n = c(1000, 2000, 3000, 4000),
     top_value_method = "MAD", partition_method = "kmeans",
     anno = data.frame(subtype = subtype,
